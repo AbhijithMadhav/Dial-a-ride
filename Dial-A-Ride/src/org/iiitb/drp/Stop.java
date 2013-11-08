@@ -14,15 +14,13 @@ public class Stop
 	int location;
 	int requestId; // requester of the stop?
 	StopType stopType;
-	DijkstraSP sp;
+	private DijkstraSP sp;
 	EdgeWeightedDigraph g; // Needed only for clone()
 
-	int et; // earliest pickup/delivery time
-	int lt; // latest pickup/delivery time
+	final int et; // earliest pickup/delivery time
+	final int lt; // latest pickup/delivery time
 	int at; // actual pickup/delivery time
 	
-	int b_et;
-	int b_lt;
 	int b_at;
 
 	public Stop(int location, int et, int lt, int requestId, StopType stopType,

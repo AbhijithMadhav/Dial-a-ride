@@ -7,10 +7,10 @@ package org.iiitb.drp;
  */
 public class Request implements Comparable<Request>
 {
-	int id;
+	private int id;
 	Stop pickUp;
 	Stop drop;
-	int spCost;
+	private int spCost;
 
 	public Request(Stop pickUp, Stop drop)
 	{
@@ -30,6 +30,11 @@ public class Request implements Comparable<Request>
 		 return pickUp.et - l.et; // Based on earliest pickUp time
 		//return (spCost - r.spCost); // Based on revenue
 		// return ((pickUp.lt - pickUp.et)- (l.lt - l.et)); // Based on pickup interval
+	}
+	
+	public int getCost()
+	{
+		return spCost;
 	}
 	
 	public String toString()

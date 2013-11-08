@@ -1,26 +1,32 @@
 package org.iiitb.drp;
 
+import java.io.IOException;
 import java.util.LinkedList;
+import java.util.logging.Logger;
 
 import org.iiitb.graphs.EdgeWeightedDigraph;
 
 public class Taxi
 {
-	static int counter = 0;
-	int id;
-	Stop startPoint;
-	int capacity;
+	private static int counter = 0;
+	private int id;
+	private Stop startPoint;
+	private int capacity;
 	LinkedList<Stop> route;
+	private Logger logger;
+	int revenue;
 
 	public Taxi(int startPoint, int capacity, EdgeWeightedDigraph cityMap)
+			throws SecurityException, IOException
 	{
 		id = ++counter;
 		this.capacity = capacity;
 		this.startPoint = new Stop(startPoint, DialARide.dayStartTime,
 				DialARide.dayStartTime, -1, StopType.TAXI_LOCATION, cityMap);
-		route = new LinkedList<>();
+		route = new LinkedList<Stop>();
+		logger = MyLogger.getInstance();
+		revenue = 0;
 	}
-
 
 	/**
 	 * Attempt insertion of a request into this taxi route.
@@ -33,29 +39,24 @@ public class Taxi
 		Stop pickUpPoint = r.pickUp;
 		Stop dropPoint = r.drop;
 
-		System.out.println("Attempting to service request " + r
-				+ " through taxi " + id);
+		logger.info("\nAttempting to service " + r + " through taxi " + id);
 		if (route.isEmpty())
 		{
 			if (insertStop(0, pickUpPoint))
 				if (insertStop(route.size(), dropPoint))
 				{
-					System.out.println("Successful in accomodating request" + r
-							+ " through taxi " + id);
+					revenue += pickUpPoint.distTo(dropPoint) * DialARide.ratePerKm;
 					return true;
 				}
 			while (!route.isEmpty())
 				route.remove();
-			System.out.println("Unsuccessful in accomodating request" + r
-					+ " through taxi " + id);
 			return false;
 		}
 
 		// Attempt inserting pickUpPoint into the route
 		int nPassengers = 0;
-		for (int i = 0; i <= route.size(); i++)// No iterator. Need to modify
-												// list
-		{
+		for (int i = 0; i <= route.size(); i++)
+		{// No iterator as there is a need to modify list
 			Stop prevStop = null;
 			if (i != 0)
 			{
@@ -81,22 +82,8 @@ public class Taxi
 			// Backup 'taxi state' as might have to revert back if insertion of
 			// pickUpPoint is unsuccessful(Due to taxi overflow discovered while
 			// trying to insert dropPoint)
-			LinkedList<Stop> tmpRoute = new LinkedList<Stop>(route); // To do :
-																		// WRONG
-			for (Stop s : tmpRoute)
-			{ // backup
+			for (Stop s : route)
 				s.b_at = s.at;
-				s.b_et = s.et;
-				s.b_lt = s.lt;
-			}
-
-			// Very inefficient
-			// LinkedList<Stop> tmpRoute = new LinkedList<Stop>();
-			// for (Stop s : route)
-			// {
-			// tmpRoute.add((Stop) s.clone()); // Deep copy of list
-			// count++;
-			// }
 			int tmpNPassengers = nPassengers;
 
 			// Attempt insertion of pickUpPoint before nextStop
@@ -105,9 +92,8 @@ public class Taxi
 				insertPosition = route.indexOf(nextStop);
 			if (!insertStop(insertPosition, pickUpPoint))
 			{
-				// To do : restore??
-				// if (insertPosition == route.size())
-				// System.out.println("CANNOT ACCOMODATE " + r + "\n");
+				for (Stop s : route)
+					s.b_at = s.at;
 				continue;
 			}
 
@@ -117,8 +103,8 @@ public class Taxi
 			prevStop = pickUpPoint;
 			boolean exceededCapacity = false;
 			for (int k = insertPosition + 1; k < route.size(); k++, prevStop = nextOfDropPoint)
-			// not using iterator as I need to modify the list
-			{
+			{// not using iterator as I need to modify the list
+
 				nextOfDropPoint = route.get(k);
 
 				// Continue counting passengers
@@ -133,61 +119,50 @@ public class Taxi
 					// earlier scheduled passenger getting elbowed out. Try
 					// inserting the pickUp point at a later stop
 					// Restore taxi-state
-					route = tmpRoute;
+					route.remove(pickUpPoint);
 					for (Stop s : route)
-					{// restore
 						s.at = s.b_at;
-						s.et = s.b_et;
-						s.lt = s.b_lt;
-					}
-					System.out.println("Exceeded capacity. Passengers are "
+					nPassengers = tmpNPassengers;
+
+					logger.info("Exceeded capacity. Passengers are "
 							+ nPassengers + " between stops " + prevStop
 							+ " and " + nextOfDropPoint
 							+ ". Need reinsert pickup point, " + pickUpPoint
 							+ ", elsewhere");
-					nPassengers = tmpNPassengers;
 					exceededCapacity = true;
-
 					break;
-
 				}
 
 				// Attempt insertion of dropPoint before nextOfDropPoint
 				if (!insertStop(route.indexOf(nextOfDropPoint), dropPoint))
 				{
-					// To do : restore
+					// Try in further positions
 					continue;
 				}
+				revenue += pickUpPoint.distTo(dropPoint) * DialARide.ratePerKm;
 				return true;
 			}
 			if (!exceededCapacity)
 			{
-
+				// Try inserting dropPoint in last position
 				if (insertStop(route.size(), dropPoint))
+				{
+					revenue += pickUpPoint.distTo(dropPoint) * DialARide.ratePerKm;
 					return true;
+				}
 				else
 				{
-					route = tmpRoute;
+					route.remove(pickUpPoint);
+					route.remove(dropPoint);
 					for (Stop s : route)
-					{// restore
 						s.at = s.b_at;
-						s.et = s.b_et;
-						s.lt = s.b_lt;
-					}
 					nPassengers = tmpNPassengers;
-					// To do : Insert using log4j
-					// System.out.println("Cannot insert drop : " + dropPoint);
-					// System.out.println("Trying to restore original schedule by removing "
-					// + pickUpPoint);
-					// System.out.println(this);
-					// System.out.println();
 				}
-
 			}
 		}
 		return false;
 	}
-	
+
 	/**
 	 * Insert a stop(pickup/drop) into this taxi route.
 	 * 
@@ -200,29 +175,25 @@ public class Taxi
 	{
 		Stop tmpStop = new Stop(stop.location, stop.et, stop.lt,
 				stop.requestId, stop.stopType, stop.g);
-		if (position > route.size())
+
+		if (position > route.size() || position < 0)
 			return false;
 
 		if (position == 0)
 		{
 			assert stop.type() == StopType.PICKUP;
-			System.out.println("Attempting to add " + tmpStop + " into taxi "
-					+ id + " in the first position");
-
-			stop.at = startPoint.at + shortestTime(startPoint, stop);
+			logger.info("Attempting to add " + tmpStop + " into taxi " + id
+					+ " in the first position");
 
 			// Can taxi reach pickup point before its window closes?
-			if (stop.at > stop.lt)
+			if (startPoint.at + shortestTime(startPoint, stop) > stop.lt)
 			{
-				System.out.println("Can't reach " + stop.location + " from "
+				logger.info("Can't reach " + stop.location + " from "
 						+ startPoint + " in time(Need "
 						+ shortestTime(startPoint, stop) + " min)");
 				return false;
 			}
-
-			// Set the actual time of the first pickup to the earliest time
-			// possible. Because of this it is not possible to prepone any
-			// pickups in the route. They can only be postponed.
+			stop.at = startPoint.at + shortestTime(startPoint, stop);
 			if (stop.at < stop.et)
 				stop.at = stop.et;
 
@@ -236,39 +207,35 @@ public class Taxi
 				{
 					if (!postponeAllFromStop(nextStop, stop))
 					{
-						System.out
-								.println("Can postpone future scheduled stops");
-						// To do : REmove a lesser revenue future scheduled stop
+						logger.info("Can't postpone future scheduled stops");
+						// To do : Remove a lesser revenue future scheduled stop
 						return false;
 					}
 				}
-				// else if (stop.at + shortestTime(stop, nextStop) <
-				// nextStop.at)
-				// To do : prepone nestStop
-				// return false;
 			}
 		}
 		else if (position == route.size())
-		{// TO do : merge this with the else block
+		{// To do : merge this with the else block
 			Stop prevStop = route.getLast();
-			System.out.println("Attempting to add " + tmpStop + " into taxi "
-					+ id + " in the last position, after " + prevStop);
+			logger.info("Attempting to add " + tmpStop + " into taxi " + id
+					+ " in the last position, after " + prevStop);
 			if (prevStop.at > stop.lt)
 			{
-				System.out.println("Previous stop AT > LT");
+				logger.info("Previous stop AT > LT");
 				return false;
 			}
-			stop.at = prevStop.at + shortestTime(prevStop, stop);
 
-			if (stop.at < stop.et)
-				stop.at = stop.et; // To do : Taxi idle's here
-			else if (stop.at > stop.lt)
+			if (prevStop.at + shortestTime(prevStop, stop) > stop.lt)
 			{
-				System.out.println("Can't reach " + stop.location + " from "
+				logger.info("Can't reach " + stop.location + " from "
 						+ prevStop.location + " in time(Need "
 						+ shortestTime(prevStop, stop) + " min)");
 				return false;
 			}
+
+			stop.at = prevStop.at + shortestTime(prevStop, stop);
+			if (stop.at < stop.et)
+				stop.at = stop.et;
 		}
 		else
 		{
@@ -276,46 +243,45 @@ public class Taxi
 			assert prevStop != null;
 			Stop nextStop = route.get(position);
 
-			System.out.println("Attempting to add " + tmpStop + " into taxi "
-					+ id + " between " + prevStop + " and " + nextStop);
+			logger.info("Attempting to add " + tmpStop + " into taxi " + id
+					+ " between " + prevStop + " and " + nextStop);
 
 			if (prevStop.at > stop.lt)
 			{
-				System.out.println("Previous stop AT > LT");
+				logger.info("Previous stop AT > LT");
 				return false;
 			}
+			
 			if (prevStop.location == nextStop.location
 					&& prevStop.at == nextStop.at)
 			{
-				System.out.println("Not scheduling " + stop
+				logger.info("Not scheduling " + stop
 						+ " inbetween stops having the same location");
-
 				return false; // Don't schedule a request in between
 								// pickup/drops at the same location
 			}
-			// To do : What if there is an idle period inbetween??
+			
 
-			stop.at = prevStop.at + shortestTime(prevStop, stop);
 			// Can taxi make it from prevStop to this stop within time
 			// constraints
-			if (stop.at < stop.et)
-				stop.at = stop.et; // To do : Taxi idles here
-			else if (stop.at > stop.lt)
+			if (prevStop.at + shortestTime(prevStop, stop) > stop.lt)
 			{
-				System.out.println("Can't reach " + stop.location + " from "
+				logger.info("Can't reach " + stop.location + " from "
 						+ prevStop.location + " in time(Need "
 						+ shortestTime(prevStop, stop) + " min)");
 				return false;
 			}
 
+			stop.at = prevStop.at + shortestTime(prevStop, stop);
+			if (stop.at < stop.et)
+				stop.at = stop.et;
+
 			// Can taxi make it from this stop to the next with
 			int t = stop.at + shortestTime(stop, nextStop);
-			// if (t < nextStop.at)
-			// nextStop.at = t;
-			if (t > nextStop.lt) // To do : Taxi idles here
+			if (t > nextStop.lt)
 			{
-				System.out.println("Can't reach " + nextStop.location
-						+ " from " + stop.location + " in time(Need "
+				logger.info("Can't reach " + nextStop.location + " from "
+						+ stop.location + " in time(Need "
 						+ shortestTime(stop, nextStop) + " min)");
 				return false;
 			}
@@ -326,24 +292,21 @@ public class Taxi
 			if (nextStop.at < t)
 				if (!postponeAllFromStop(nextStop, stop))
 				{
-					System.out.println("Can postpone future scheduled stops");
+					logger.info("Can postpone future scheduled stops");
 					return false;
 				}
 		}
 		route.add(position, stop);
 		checkScheduleAfterInsertion(stop);
 
-		// to do : insert using log4j
-		System.out.println("Added " + tmpStop + " to taxi " + id);
-		System.out.println("Schedule for taxi " + id + " : " + toString());
-		System.out.println();
+		logger.info("Added " + tmpStop + " to taxi " + id);
+		logger.info(toString());
 		return true;
 	}
 
 	public void checkScheduleAfterInsertion(Stop stop)
 	{
 		Stop p = startPoint;
-		int nPassengers = 0;
 		for (Stop s : route)
 		{
 			if (s.at - p.at < shortestTime(p, s))
@@ -412,10 +375,8 @@ public class Taxi
 		return (int) (v.distTo(w)) * DialARide.timePerKm;
 	}
 
-	private boolean postponeAllFromStop(Stop stop, Stop prevStop)
+	private boolean canPostpone(Stop stop, Stop prevStop)
 	{
-		// To do : Clean code
-		// LinkedList<Stop> tRoute = new LinkedList<>(route);
 		Stop p = prevStop;
 		int sAt, pAt = prevStop.at;
 		for (int i = route.indexOf(stop); i < route.size(); i++)
@@ -429,6 +390,13 @@ public class Taxi
 			p = s;
 			pAt = sAt;
 		}
+		return true;
+	}
+
+	private boolean postponeAllFromStop(Stop stop, Stop prevStop)
+	{
+		if (!canPostpone(stop, prevStop))
+			return false;
 
 		for (int i = route.indexOf(stop); i < route.size(); i++)
 		{
@@ -436,12 +404,12 @@ public class Taxi
 			s.at = prevStop.at + shortestTime(prevStop, s);
 			if (s.at < s.et)
 				s.at = s.et;
-			assert s.at <= s.lt;
+			assert s.at <= s.lt; // did
 			prevStop = s;
 		}
 		return true;
 	}
-	
+
 	public String toString()
 	{
 		String str = "Taxi " + id + " : " + startPoint;
@@ -475,21 +443,44 @@ public class Taxi
 		}
 		return str;
 	}
-	
+
 	public int dist(int time, Stop dest)
 	{
 		if (route.isEmpty())
 			return startPoint.distTo(dest);
-		
+
 		if (time < route.getFirst().et)
 			return route.getFirst().distTo(dest);
-		
-		for (Stop s: route)
+
+		for (Stop s : route)
 			if (time > s.et)
 				return s.distTo(dest);
-		return route.getLast().distTo(dest);	
-			
+		return route.getLast().distTo(dest);
+
+	}
+
+	public int distanceTravelled()
+	{
+		int distance = 0;
+		Stop p = startPoint;
+		for (Stop s : route)
+		{
+			distance += p.distTo(s);
+			p = s;
+		}
+		return distance;
+	}
+
+	public int idleTime()
+	{
+		int idleTime = 0;
+		Stop p = startPoint;
+		for (Stop s : route)
+		{
+			idleTime += (s.at - p.at) - DialARide.timePerKm * p.distTo(s);
+			p = s;
+		}
+		idleTime += DialARide.dayEndTime - route.getLast().at;
+		return idleTime;
 	}
 }
-
-

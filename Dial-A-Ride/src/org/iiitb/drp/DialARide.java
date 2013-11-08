@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.StringTokenizer;
+import java.util.logging.Logger;
 
 import org.iiitb.graphs.DijkstraSP;
 import org.iiitb.graphs.DirectedEdge;
@@ -19,6 +20,7 @@ public class DialARide
 	LinkedList<Request> unservicedRequests;
 	ArrayList<Taxi> taxis;
 	int revenue;
+	private Logger logger;
 	static final int dayStartTime = 0;
 	static final int dayEndTime = 24 * 60;
 	final static int timePerKm = 2; // minutes
@@ -27,7 +29,7 @@ public class DialARide
 	final static double deviationFactor = 2;
 
 	public DialARide(ArrayList<Request> requests, ArrayList<Taxi> taxis,
-			EdgeWeightedDigraph cityMap) throws PickUpTimingConstraintViolation
+			EdgeWeightedDigraph cityMap) throws SecurityException, IOException
 	{
 		// sort requests by their earliest time
 		this.requests = requests;
@@ -36,34 +38,16 @@ public class DialARide
 		revenue = 0;
 		this.taxis = taxis;
 		this.cityMap = cityMap;
-		
+		logger = MyLogger.getInstance();
+
 		schedule1();
 		for (Taxi t : taxis)
 			t.check();
-	/*	int size;
-		do
-		{
-			size = unservicedRequests.size();
-			System.out.println("Unserviced Requests : " + size);
-			for (Taxi taxi : taxis)
-			{
-				for (int i = 0; i < unservicedRequests.size();)
-				{
-					Request request = unservicedRequests.get(i);
-					if (taxi.schedule(request))
-					{
-						revenue += request.spCost;
-						unservicedRequests.remove(i);
-					}
-					else
-						i++;
-				}
-			}
-		} while (unservicedRequests.size() < size);*/
-		
-		System.out.println("Unserviced Requests");
+
+		logger.info("\nUnserviced Requests");
 		for (Request r : unservicedRequests)
-			System.out.println(r);
+			logger.info(r.toString());
+		logger.info("");
 	}
 
 	// Assumes that requests are ordered by their earliest pickup time
@@ -75,12 +59,12 @@ public class DialARide
 				if (taxi.schedule(request))
 				{
 					unservicedRequests.remove(request);
-					revenue += request.spCost;
+					revenue += request.getCost();
 					break;
 				}
 	}
 
-	public void schedule2() throws PickUpTimingConstraintViolation
+	public void schedule2()
 	{
 
 		// Method 2
@@ -94,7 +78,7 @@ public class DialARide
 				Request request = requests.get(j);
 				if (taxi.schedule(request))
 				{
-					revenue += request.spCost;
+					revenue += request.getCost();
 					unservicedRequests.remove(request);
 				}
 			}
@@ -116,131 +100,65 @@ public class DialARide
 				if (taxi.taxi.schedule(request))
 				{
 					unservicedRequests.remove(request);
-					revenue += request.spCost;
+					revenue += request.getCost();
 					break;
 				}
 		}
 	}
 
-	// Assumes requests are ordered by their pickup time intervals
-	public void schedule4()
+	public void logReport()
 	{
-		//Collections.reverse(requests);
-		for (Request request : requests)
-			System.out.println(request.id + " "
-					+ (request.pickUp.lt - request.pickUp.et));
-		// Method 1
-		for (Request request : requests)
-			for (Taxi taxi : taxis)
-				if (taxi.schedule(request))
-				{
-					unservicedRequests.remove(request);
-					revenue += request.spCost;
-					break;
-				}
-	}
-
-	public void display() throws PickUpTimingConstraintViolation
-	{
-		int taxiNum = 0;
+		int nTaxi = 0;
 		int distance = 0;
 		int idleTime = 0;
-		System.out.println("Taxi Schedules");
+		logger.info("Taxi Schedules");
 		for (Taxi t : taxis)
 		{
-			if (t.route.isEmpty())
-				continue;
-
-			System.out.print(++taxiNum + " : " + "(" + t.startPoint.location
-					+ ")");
-			int nPassengers = 0;
-			Stop p = t.startPoint;
-			for (Stop s : t.route)
-			{
-				System.out.print(" --(" + t.shortestTime(p, s));
-				distance += p.distTo(s);
-
-				if (s.at - p.at > t.shortestTime(p, s))
-				{
-					idleTime += s.at - p.at - t.shortestTime(p, s);
-					System.out.print(" + "
-							+ (s.at - p.at - t.shortestTime(p, s))
-							+ "(IDLE) min)--> ");
-				}
-				else
-				{
-					System.out.print(" min)--> ");
-				}
-
-				if (s.type() == StopType.PICKUP)
-				{
-					System.out.print("+");
-					nPassengers++;
-				}
-				else
-				{
-					System.out.print("-");
-					nPassengers--;
-				}
-				System.out.print(s.requestId + "(" + s.location + " : " + "["
-						+ s.et + "-" + s.at + "-" + s.lt + "])");
-
-				p = s;
-				if (t.route.getLast().equals(s))
-				{
-					idleTime += dayEndTime - t.route.getLast().at;
-					System.out.print(" ---IDLE for "
-							+ (dayEndTime - t.route.getLast().at)
-							+ " min--- ");
-				}
-
-			}
-			System.out.println();
+			int dist = t.distanceTravelled();
+			if (dist != 0)
+				nTaxi++;
+			distance += dist;
+			idleTime += t.idleTime();
+			logger.info(t.toString());
 		}
-		System.out.println(requests.size() - unservicedRequests.size()
+		logger.info("");
+
+		logger.info(requests.size() - unservicedRequests.size()
 				+ " requests out of " + requests.size() + " serviced.");
-		System.out.println(taxiNum + " taxis used");
-		System.out.println("Total distance travelled = " + distance + " kms");
-		System.out.println("Total revenue = " + revenue);
-		System.out.println("Idle time = " + idleTime + " min");
+		logger.info(nTaxi + " taxis out of " + taxis.size() + " used");
+		logger.info("");
+
+		logger.info("Total distance travelled = " + distance + " kms");
+		logger.info("");
+
+		logger.info("Idle time = " + idleTime + " min");
+		logger.info("");
+
 		int sum = 0;
 		for (Request r : requests)
-			sum += r.spCost;
-		System.out.println("Maximum revenue possible = " + sum);
-
-		int extraDistance = 0;
-		for (Taxi t : taxis)
-		{
-			LinkedList<Stop> route = t.route;
-			for (int i = 0; i < route.size(); i++)
-			{
-				Stop pickUp = route.get(i);
-				if (pickUp.type() == StopType.PICKUP)
-				{
-					int actualRideDistance = 0;
-
-					for (int k = i; k < route.size(); k++)
-					{
-						Stop s = route.get(k);
-						Stop n = route.get(k + 1);
-						actualRideDistance += s.distTo(n);
-						if (n.requestId == pickUp.requestId
-								&& n.type() == StopType.DROP)
-						{
-							extraDistance += actualRideDistance
-									- pickUp.distTo(n);
-							break;
-						}
-					}
-				}
-			}
-		}
-		System.out.println("Total extra distance travelled = " + extraDistance);
+			sum += r.getCost();
+		logger.info("Maximum revenue possible = " + sum);
+		logger.info("Total revenue = " + revenue);
 	}
 
-	public static void main(String[] args) throws IOException,
-			PickUpTimingConstraintViolation
+	public String toString()
 	{
+		String str = "";
+		int revenue = 0;
+		for (Taxi t : taxis)
+		{
+			for (Stop s : t.route)
+				str += s.location + " ";
+			str += t.revenue + "\n";
+			revenue += t.revenue;
+		}
+		str += revenue + "\n";
+		return str;
+	}
+
+	public static void main(String[] args) throws IOException
+	{
+		Logger logger = MyLogger.getInstance();
 		BufferedReader br = new BufferedReader(new FileReader(args[0]));
 		StringTokenizer st = new StringTokenizer(br.readLine());
 
@@ -249,7 +167,7 @@ public class DialARide
 		int vehicleCapacity = Integer.parseInt(st.nextToken());
 		int nRequests = Integer.parseInt(st.nextToken());
 
-		// create map
+		// create city map
 		EdgeWeightedDigraph cityMap = new EdgeWeightedDigraph(nLocations + 1);
 		for (int v = 1; v <= nLocations; v++)
 		{
@@ -261,11 +179,11 @@ public class DialARide
 					cityMap.addEdge(new DirectedEdge(v, w, distance));
 			}
 		}
-		// System.out.println("City Map");
-		// System.out.println(cityMap);
+		logger.info("City Map");
+		logger.info(cityMap.toString());
 
 		// create taxis
-		// System.out.println("\nInitial taxi location");
+		logger.info("Taxi's");
 		st = new StringTokenizer(br.readLine());
 		ArrayList<Taxi> taxis = new ArrayList<Taxi>();
 		for (int i = 0; i < nVehicles; i++)
@@ -273,11 +191,12 @@ public class DialARide
 			int location = Integer.parseInt(st.nextToken());
 			Taxi t = new Taxi(location, vehicleCapacity, cityMap);
 			taxis.add(t);
-			// System.out.println(t);
+			logger.info(t.toString());
 		}
+		logger.info("");
 
 		// Requests
-		// System.out.println("\nRequests list");
+		logger.info("Requests list");
 		ArrayList<Request> requests = new ArrayList<>();
 		for (int i = 0; i < nRequests; i++)
 		{
@@ -289,30 +208,27 @@ public class DialARide
 
 			Stop src = new Stop(srcLocation, et, lt, i, StopType.PICKUP,
 					cityMap);
-			//System.out.print(src.location + " : ");
-			//System.out.println(src.sp);
-			// System.out.println(src.lt - src.at);
 			DijkstraSP sp = new DijkstraSP(cityMap, src.location);
-			int destLt = Math.min(et + (int) (sp.distTo(destLocation) * deviationFactor * timePerKm), dayEndTime);
-			Stop dest = new Stop(
-					destLocation,
-					et + (int)(sp.distTo(destLocation) * timePerKm),
-					destLt,
-					i, StopType.DROP, cityMap);
-			//System.out.print(dest.location + " : ");
-			//System.out.println(dest.sp);
+			int destLt = Math
+					.min(et
+							+ (int) (sp.distTo(destLocation) * deviationFactor * timePerKm),
+							dayEndTime);
+			Stop dest = new Stop(destLocation, et
+					+ (int) (sp.distTo(destLocation) * timePerKm), destLt, i,
+					StopType.DROP, cityMap);
 			Request r = new Request(src, dest);
 			requests.add(r);
-
-			// System.out.println(r);
+			logger.info(r.toString());
 		}
-		// System.out.println();
+		logger.info("");
 
 		final long startTime = System.currentTimeMillis();
 		DialARide darp = new DialARide(requests, taxis, cityMap);
 		final long endTime = System.currentTimeMillis();
-		System.out.println("TIME NEEDED = " + (endTime - startTime)/1000.0 + "secs");
-		darp.display();
+		//System.out.println("Program run time = " + (endTime - startTime)
+			//	/ 1000.0 + "secs\n");
+		//darp.logReport();
+		System.out.println(darp);
 		br.close();
 	}
 }
