@@ -38,6 +38,8 @@ public class DialARide
 		this.cityMap = cityMap;
 		
 		schedule1();
+		for (Taxi t : taxis)
+			t.check();
 	/*	int size;
 		do
 		{
@@ -58,8 +60,10 @@ public class DialARide
 				}
 			}
 		} while (unservicedRequests.size() < size);*/
-
-
+		
+		System.out.println("Unserviced Requests");
+		for (Request r : unservicedRequests)
+			System.out.println(r);
 	}
 
 	// Assumes that requests are ordered by their earliest pickup time
@@ -144,32 +148,23 @@ public class DialARide
 		System.out.println("Taxi Schedules");
 		for (Taxi t : taxis)
 		{
-			if (t.schedule.route.isEmpty())
+			if (t.route.isEmpty())
 				continue;
 
 			System.out.print(++taxiNum + " : " + "(" + t.startPoint.location
 					+ ")");
 			int nPassengers = 0;
 			Stop p = t.startPoint;
-			for (Stop s : t.schedule.route)
+			for (Stop s : t.route)
 			{
-				if (nPassengers > t.schedule.capacity)
-				{
-					System.err.println();
-					System.err
-							.println("Schedule of this taxi exceeds capacity after accomadation of last request : "
-									+ s.requestId);
-					System.exit(1);
-				}
-
-				System.out.print(" --(" + t.schedule.shortestTime(p, s));
+				System.out.print(" --(" + t.shortestTime(p, s));
 				distance += p.distTo(s);
 
-				if (s.at - p.at > t.schedule.shortestTime(p, s))
+				if (s.at - p.at > t.shortestTime(p, s))
 				{
-					idleTime += s.at - p.at - t.schedule.shortestTime(p, s);
+					idleTime += s.at - p.at - t.shortestTime(p, s);
 					System.out.print(" + "
-							+ (s.at - p.at - t.schedule.shortestTime(p, s))
+							+ (s.at - p.at - t.shortestTime(p, s))
 							+ "(IDLE) min)--> ");
 				}
 				else
@@ -177,13 +172,6 @@ public class DialARide
 					System.out.print(" min)--> ");
 				}
 
-				if (s.at < s.et || s.at > s.lt)
-				{
-					System.err.println("Timing constraint of request "
-							+ s.requestId + ": " + s.et + "---" + s.lt
-							+ " not met. Actual time assigned : " + s.at);
-					throw new PickUpTimingConstraintViolation(s);
-				}
 				if (s.type() == StopType.PICKUP)
 				{
 					System.out.print("+");
@@ -198,11 +186,11 @@ public class DialARide
 						+ s.et + "-" + s.at + "-" + s.lt + "])");
 
 				p = s;
-				if (t.schedule.route.getLast().equals(s))
+				if (t.route.getLast().equals(s))
 				{
-					idleTime += dayEndTime - t.schedule.route.getLast().at;
+					idleTime += dayEndTime - t.route.getLast().at;
 					System.out.print(" ---IDLE for "
-							+ (dayEndTime - t.schedule.route.getLast().at)
+							+ (dayEndTime - t.route.getLast().at)
 							+ " min--- ");
 				}
 
@@ -223,7 +211,7 @@ public class DialARide
 		int extraDistance = 0;
 		for (Taxi t : taxis)
 		{
-			LinkedList<Stop> route = t.schedule.route;
+			LinkedList<Stop> route = t.route;
 			for (int i = 0; i < route.size(); i++)
 			{
 				Stop pickUp = route.get(i);
@@ -301,8 +289,8 @@ public class DialARide
 
 			Stop src = new Stop(srcLocation, et, lt, i, StopType.PICKUP,
 					cityMap);
-			// System.out.print(src.location + " : ");
-			// System.out.println(src.sp);
+			//System.out.print(src.location + " : ");
+			//System.out.println(src.sp);
 			// System.out.println(src.lt - src.at);
 			DijkstraSP sp = new DijkstraSP(cityMap, src.location);
 			int destLt = Math.min(et + (int) (sp.distTo(destLocation) * deviationFactor * timePerKm), dayEndTime);
@@ -311,8 +299,8 @@ public class DialARide
 					et + (int)(sp.distTo(destLocation) * timePerKm),
 					destLt,
 					i, StopType.DROP, cityMap);
-			// System.out.print(dest.location + " : ");
-			// System.out.println(dest.sp);
+			//System.out.print(dest.location + " : ");
+			//System.out.println(dest.sp);
 			Request r = new Request(src, dest);
 			requests.add(r);
 
