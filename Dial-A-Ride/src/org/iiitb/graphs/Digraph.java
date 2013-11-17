@@ -75,5 +75,4 @@ public class Digraph extends Graph
 				}
 		return R;
 	}
-
 }

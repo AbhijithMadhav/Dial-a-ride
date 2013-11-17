@@ -1,5 +1,7 @@
 package org.iiitb.graphs;
 
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * An Adjacency-list representation of a graph
@@ -18,7 +20,7 @@ public class Graph
 	/**
 	 * Adjacency lists
 	 */
-	protected Bag<Integer>[] adj;
+	protected List<Integer>[] adj;
 
 	/**
 	 * Create a {@code V} vertex graph with no edges
@@ -32,12 +34,13 @@ public class Graph
 		E = 0;
 
 		// create an array of bags(references to bags)
-		adj = (Bag<Integer>[]) new Bag[V];
+		adj = (List<Integer>[]) new LinkedList[V];
 
 		// Initialise the bags(actually create the bags)
 		for (int v = 0; v < V; v++)
-			adj[v] = new Bag<Integer>();
+			adj[v] = new LinkedList<Integer>();
 	}
+
 
 
 	/**
@@ -140,7 +143,7 @@ public class Graph
 	 *            determined
 	 * @return Adjacent vertices
 	 */
-	Iterable<Integer> adj(int v)
+	public Iterable<Integer> adj(int v)
 	{
 		return adj[v];
 	}
@@ -180,6 +183,7 @@ public class Graph
 	 * stream named as command-line argument and then prints it, relying on
 	 * toString().
 	 */
+
 
 
 }

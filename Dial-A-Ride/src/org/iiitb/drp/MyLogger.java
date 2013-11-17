@@ -5,8 +5,10 @@ package org.iiitb.drp;
 
 import java.io.IOException;
 import java.util.logging.FileHandler;
+import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 /**
@@ -33,4 +35,13 @@ public final class MyLogger
 		return loggerInstance;
 	}
 
+}
+
+class LogFileFormatter extends Formatter
+{
+	    @Override
+	    public String format(LogRecord record) {
+	        return record.getMessage() + "\n";
+	    }
+	
 }

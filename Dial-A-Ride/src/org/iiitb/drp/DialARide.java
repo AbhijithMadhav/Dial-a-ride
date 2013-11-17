@@ -148,16 +148,19 @@ public class DialARide
 		for (Taxi t : taxis)
 		{
 			for (Stop s : t.route)
-				str += s.location + " ";
+				str += s.location + " " + s.at + " ";
 			str += t.revenue + "\n";
 			revenue += t.revenue;
 		}
-		str += revenue + "\n";
+		str += revenue;
 		return str;
 	}
 
 	public static void main(String[] args) throws IOException
 	{
+		if (args.length < 1)
+			System.exit(1);
+		
 		Logger logger = MyLogger.getInstance();
 		BufferedReader br = new BufferedReader(new FileReader(args[0]));
 		StringTokenizer st = new StringTokenizer(br.readLine());

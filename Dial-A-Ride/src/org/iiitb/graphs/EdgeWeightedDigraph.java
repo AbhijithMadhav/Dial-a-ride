@@ -1,19 +1,23 @@
 package org.iiitb.graphs;
 
+import java.util.LinkedList;
+import java.util.List;
+
 public class EdgeWeightedDigraph
 {
 	private int V;
 	private int E;
-	private Bag<DirectedEdge>[] adj;
+	private List<DirectedEdge>[] adj;
 
 	@SuppressWarnings("unchecked")
 	public EdgeWeightedDigraph(int V)
 	{
 		this.V = V;
-		adj = (Bag<DirectedEdge>[]) new Bag[V];
+		adj = (List<DirectedEdge>[]) new LinkedList[V];
 		for (int v = 0; v < V; v++)
-			adj[v] = new Bag<DirectedEdge>();
+			adj[v] = new LinkedList<DirectedEdge>();
 	}
+
 
 	public int V()
 	{
@@ -38,7 +42,7 @@ public class EdgeWeightedDigraph
 
 	public Iterable<DirectedEdge> edges()
 	{
-		Bag<DirectedEdge> b = new Bag<DirectedEdge>();
+		List<DirectedEdge> b = new LinkedList<DirectedEdge>();
 		for (int v = 0; v < V; v++)
 			for (DirectedEdge e : adj[v])
 				b.add(e);
