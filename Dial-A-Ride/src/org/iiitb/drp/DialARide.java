@@ -26,7 +26,7 @@ public class DialARide
 	final static int timePerKm = 2; // minutes
 	final static int ratePerKm = 1; // Rupees
 
-	final static double deviationFactor = 1.5;
+	final static double deviationFactor = 3/2;
 
 	public DialARide(ArrayList<Request> requests, ArrayList<Taxi> taxis,
 			EdgeWeightedDigraph cityMap) throws SecurityException, IOException
