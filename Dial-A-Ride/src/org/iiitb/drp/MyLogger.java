@@ -30,7 +30,7 @@ public final class MyLogger
 			loggerInstance.setUseParentHandlers(false);
 			fileHandler.setFormatter(new LogFileFormatter());
 			loggerInstance.addHandler(fileHandler);
-			loggerInstance.setLevel(Level.OFF);
+			loggerInstance.setLevel(Level.INFO);
 		}
 		return loggerInstance;
 	}

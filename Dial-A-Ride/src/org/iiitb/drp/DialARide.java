@@ -26,7 +26,7 @@ public class DialARide
 	final static int timePerKm = 2; // minutes
 	final static int ratePerKm = 1; // Rupees
 
-	final static double deviationFactor = 2;
+	final static double deviationFactor = 1.5;
 
 	public DialARide(ArrayList<Request> requests, ArrayList<Taxi> taxis,
 			EdgeWeightedDigraph cityMap) throws SecurityException, IOException
@@ -160,7 +160,7 @@ public class DialARide
 	{
 		if (args.length < 1)
 			System.exit(1);
-		
+
 		Logger logger = MyLogger.getInstance();
 		BufferedReader br = new BufferedReader(new FileReader(args[0]));
 		StringTokenizer st = new StringTokenizer(br.readLine());
@@ -212,10 +212,14 @@ public class DialARide
 			Stop src = new Stop(srcLocation, et, lt, i, StopType.PICKUP,
 					cityMap);
 			DijkstraSP sp = new DijkstraSP(cityMap, src.location);
-			int destLt = Math
-					.min(et
-							+ (int) (sp.distTo(destLocation) * deviationFactor * timePerKm),
-							dayEndTime);
+			/*
+			 * int destLt = Math
+			 * .min(et
+			 * + (int) (sp.distTo(destLocation) * deviationFactor * timePerKm),
+			 * dayEndTime);
+			 */
+			int destLt = et
+					+ (int) (sp.distTo(destLocation) * deviationFactor * timePerKm);
 			Stop dest = new Stop(destLocation, et
 					+ (int) (sp.distTo(destLocation) * timePerKm), destLt, i,
 					StopType.DROP, cityMap);
@@ -228,9 +232,9 @@ public class DialARide
 		final long startTime = System.currentTimeMillis();
 		DialARide darp = new DialARide(requests, taxis, cityMap);
 		final long endTime = System.currentTimeMillis();
-		//System.out.println("Program run time = " + (endTime - startTime)
-			//	/ 1000.0 + "secs\n");
-		//darp.logReport();
+		logger.info("Program run time = " + (endTime - startTime) / 1000.0
+				+ "secs\n");
+		darp.logReport();
 		System.out.println(darp);
 		br.close();
 	}
